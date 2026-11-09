@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dindin</title>
+  <meta name="description" content="Algorithmic trading bot: backtesting and live paper trading on simulated or CSV market data.">
+  <meta name="color-scheme" content="light dark">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script>
+    // Apply the theme before first paint to avoid a flash.
+    let t = null; try { t = localStorage.getItem("dd-theme"); } catch (e) {}
+    document.documentElement.dataset.theme = t === "light" ? "light" : "dark"; // black is the default
+  </script>
+  <script type="module" src="js/app.js"></script>
+</head>
+<body>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="i-logo" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.6" fill="none" stroke="currentColor" stroke-width="1.6" opacity=".55"/><path d="M7 14.6l3-3.3 2.4 1.9 4.6-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-up" viewBox="0 0 12 12"><path d="M6 2l4.5 7h-9z" fill="currentColor"/></symbol>
+    <symbol id="i-down" viewBox="0 0 12 12"><path d="M6 10L1.5 3h9z" fill="currentColor"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></g></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5z" fill="currentColor"/></symbol>
+    <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1.5" fill="currentColor"/></symbol>
+  </svg>
+
+  <header class="bar">
+    <a class="brand" href="./" aria-label="Dindin">
+      <span class="brand-coin" id="coin"><svg aria-hidden="true"><use href="#i-logo"/></svg></span>
+      <span class="brand-name">Dindin</span>
+      <span class="cash-pop" id="cash-pop" aria-hidden="true"></span>
+    </a>
+    <nav class="modes" role="tablist" data-i18n-attr="aria-label:modes.label">
+      <span class="modes-ink" aria-hidden="true"></span>
+      <button role="tab" data-mode="backtest" aria-selected="true" data-i18n="modes.backtest">Backtest</button>
+      <button role="tab" data-mode="live" aria-selected="false" data-i18n="modes.live">Ao vivo</button>
+      <button role="tab" data-mode="compare" aria-selected="false" data-i18n="modes.compare">Comparar</button>
+    </nav>
+    <span class="live-badge" id="live-badge" hidden><i></i><span data-i18n="live.badge">Ao vivo</span></span>
+    <div class="tools">
+      <div class="seg" role="group" data-i18n-attr="aria-label:lang.label">
+        <button data-lang="pt" aria-pressed="true">PT</button>
+        <button data-lang="en" aria-pressed="false">EN</button>
+      </div>
+      <button class="icon-btn" id="theme" type="button" data-i18n-attr="aria-label:theme.toggle">
+        <svg class="when-light" aria-hidden="true"><use href="#i-moon"/></svg>
+        <svg class="when-dark" aria-hidden="true"><use href="#i-sun"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="tape" role="region" data-i18n-attr="aria-label:tape.label">
+    <div class="tape-track" id="tape" tabindex="0">
+      <p class="tape-empty" data-i18n="tape.empty">A fita imprime cada ordem do robô. Rode um backtest para começar.</p>
+    </div>
+  </div>
+
+  <main class="layout">
+    <aside class="rail">
+      <form id="config" novalidate>
+        <fieldset data-hide-in="compare">
+          <legend data-i18n="cfg.strategy">Estratégia</legend>
+          <label class="field">
+            <span class="sr-only" data-i18n="cfg.strategy">Estratégia</span>
+            <select id="strategy" name="strategy"></select>
+          </label>
+          <p class="hint" id="strategy-hint"></p>
+          <div id="params" class="grid-2"></div>
+        </fieldset>
+
+        <fieldset>
+          <legend data-i18n="cfg.data">Dados</legend>
+          <div class="seg seg-wide" role="radiogroup" data-i18n-attr="aria-label:cfg.data">
+            <label><input type="radio" name="source" value="binance" checked><span data-i18n="cfg.market">Mercado real</span></label>
+            <label><input type="radio" name="source" value="synthetic"><span data-i18n="cfg.synthetic">Simulado</span></label>
+            <label id="csv-option"><input type="radio" name="source" value="csv"><span>CSV</span></label>
+          </div>
+          <div class="grid-2" id="market-fields">
+            <label class="field"><span data-i18n="cfg.symbol">Par</span><select name="symbol"><option>BTCUSDT</option></select></label>
+            <label class="field"><span data-i18n="cfg.timeframe">Tempo gráfico</span><select name="timeframe"><option>1h</option></select></label>
+          </div>
+          <p class="hint" id="market-hint" data-i18n="cfg.marketHint">Candles reais da Binance (dados públicos, sem chave). O robô opera só no papel.</p>
+          <div class="grid-2" id="synthetic-fields">
+            <label class="field" id="bars-field"><span data-i18n="cfg.bars">Candles</span><input name="bars" type="number" min="50" max="20000" step="50" value="1000"></label>
+            <label class="field" id="seed-field"><span data-i18n="cfg.seed">Semente</span><input name="seed" type="number" min="0" step="1" value="42"></label>
+          </div>
+          <label class="field file" id="csv-field" hidden>
+            <span data-i18n="cfg.csv">Arquivo OHLCV (.csv)</span>
+            <input name="csv" type="file" accept=".csv,text/csv">
+            <small class="hint" data-i18n="cfg.csvHint">Colunas: time, open, high, low, close, volume (opcional).</small>
+          </label>
+          <label class="field" id="speed-field" hidden><span data-i18n="cfg.speed">Velocidade</span>
+            <select name="interval">
+              <option value="1">1 candle/s</option>
+              <option value="0.5" selected>2 candles/s</option>
+              <option value="0.2">5 candles/s</option>
+              <option value="0.1">10 candles/s</option>
+            </select>
+          </label>
+        </fieldset>
+
+        <fieldset>
+          <legend data-i18n="cfg.risk">Capital e risco</legend>
+          <div class="grid-2">
+            <label class="field span-2"><span data-i18n="cfg.cash">Capital inicial</span><input name="initial_cash" type="number" min="1" step="100" value="10000"></label>
+            <label class="field"><span data-i18n="cfg.size">Posição (% do capital)</span><input name="position_size" type="number" min="1" max="100" step="1" value="95"></label>
+            <label class="field"><span data-i18n="cfg.stop">Stop-loss %</span><input name="stop_loss" type="number" min="0" max="50" step="0.5" value="5"></label>
+            <label class="field"><span data-i18n="cfg.take">Take-profit %</span><input name="take_profit" type="number" min="0" max="200" step="0.5" value="10"></label>
+            <label class="field"><span data-i18n="cfg.fee">Taxa por lado %</span><input name="fee_rate" type="number" min="0" max="5" step="0.01" value="0.1"></label>
+            <label class="field span-2"><span data-i18n="cfg.slippage">Slippage %</span><input name="slippage" type="number" min="0" max="5" step="0.01" value="0.05"></label>
+          </div>
+          <p class="hint" data-i18n="cfg.zeroOff">0 desliga o stop ou o alvo.</p>
+        </fieldset>
+
+        <button class="primary" id="run" type="submit">
+          <svg aria-hidden="true"><use href="#i-play"/></svg>
+          <span id="run-label" data-i18n="run.backtest">Rodar backtest</span>
+        </button>
+        <p class="status" id="status" role="status" aria-live="polite"></p>
+      </form>
+    </aside>
+
+    <section class="work" aria-live="off">
+      <dl class="stats" id="stats"></dl>
+
+
+      <figure class="panel chart-panel">
+        <figcaption>
+          <h2 data-i18n="chart.price">Preço</h2>
+          <span class="legend" id="price-legend"></span>
+          <span class="readout" id="price-readout"></span>
+        </figcaption>
+        <canvas id="price-chart" tabindex="0" data-i18n-attr="aria-label:chart.priceAria"></canvas>
+      </figure>
+
+      <section class="panel market" id="market-panel" hidden>
+        <div class="ticker">
+          <div class="ticker-main">
+            <span class="ticker-sym" id="mk-symbol">BTC/USDT</span>
+            <span class="ticker-price" id="mk-price" aria-live="off">–</span>
+            <span class="ticker-chg" id="mk-change"></span>
+          </div>
+          <dl class="ticker-meta">
+            <div><dt data-i18n="market.high">Máx. 24h</dt><dd id="mk-high">–</dd></div>
+            <div><dt data-i18n="market.low">Mín. 24h</dt><dd id="mk-low">–</dd></div>
+            <div><dt data-i18n="market.vol">Volume 24h</dt><dd id="mk-vol">–</dd></div>
+            <div class="conn" id="mk-conn" data-state="connecting"><i></i><span id="mk-conn-label"></span></div>
+          </dl>
+        </div>
+        <div class="market-grid">
+          <div class="book">
+            <header class="mk-head"><h2 data-i18n="market.book">Livro de ofertas</h2><span class="mk-sub" id="mk-spread"></span></header>
+            <div class="book-cols"><span data-i18n="market.price">Preço</span><span data-i18n="market.qty">Qtd.</span><span data-i18n="market.total">Total</span></div>
+            <div class="book-side asks" id="book-asks"></div>
+            <div class="book-mid" id="book-mid">–</div>
+            <div class="book-side bids" id="book-bids"></div>
+            <div class="pressure" aria-hidden="true"><span id="pressure-bar"></span></div>
+            <p class="mk-sub pressure-label" id="pressure-label"></p>
+          </div>
+          <div class="trades">
+            <header class="mk-head"><h2 data-i18n="market.trades">Negócios ao vivo</h2><span class="mk-sub" id="mk-rate"></span></header>
+            <div class="book-cols"><span data-i18n="market.price">Preço</span><span data-i18n="market.qty">Qtd.</span><span data-i18n="market.time">Hora</span></div>
+            <ol class="trade-list" id="trade-list"></ol>
+          </div>
+        </div>
+      </section>
+
+      <figure class="panel chart-panel">
+        <figcaption>
+          <h2 id="equity-title" data-i18n="chart.equity">Patrimônio vs. buy &amp; hold</h2>
+          <span class="legend" id="equity-legend"></span>
+          <span class="readout" id="equity-readout"></span>
+        </figcaption>
+        <canvas id="equity-chart" class="short" tabindex="0" data-i18n-attr="aria-label:chart.equityAria"></canvas>
+      </figure>
+      <p class="chart-help" data-i18n="chart.help">Role para dar zoom, arraste para mover, setas do teclado também funcionam. Duplo clique volta ao início.</p>
+
+      <section class="panel" id="table-panel">
+        <header class="panel-head">
+          <h2 id="table-title" data-i18n="table.trades">Operações</h2>
+          <span class="count" id="table-count"></span>
+        </header>
+        <div class="table-wrap">
+          <table id="table"><thead></thead><tbody></tbody></table>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <p data-i18n="foot.disclaimer">Dados simulados ou fornecidos por você. Projeto educacional: nenhuma ordem real é enviada e nada aqui é recomendação de investimento.</p>
+  </footer>
+</body>
+</html>
